@@ -74247,8 +74247,10 @@ const calcDiffSec = (startDate, endDate) => {
 const descriptorNames = {
     JOB_DURATION: 'github.job.duration',
     JOB_QUEUED_DURATION: 'github.job.queued_duration',
+    JOB_RUNS: 'github.job.runs',
     WORKFLOW_DURATION: 'github.workflow.duration',
-    WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration'
+    WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration',
+    WORKFLOW_RUNS: 'github.workflow.runs'
 };
 const attributeKeys = {
     REPOSITORY: 'repository',
@@ -74310,6 +74312,9 @@ const createWorkflowGauges = (workflow, workflowRunJobs) => {
     else {
         core.notice(`${workflow.name}: Skip creating ${descriptorNames.WORKFLOW_QUEUED_DURATION} metric. Queue duration is negative (${workflowQueuedDuration}s), indicating a timing issue.`);
     }
+    // Record workflow run as gauge (value=1) for counting via increase() in Prometheus
+    // We use a gauge instead of counter because each GitHub Actions run is a separate process
+    createGauge(descriptorNames.WORKFLOW_RUNS, 1, workflowMetricsAttributes, { unit: '1', description: 'Workflow run indicator for counting' });
 };
 const createJobGauges = (workflow, workflowRunJobs) => {
     for (const job of workflowRunJobs) {
@@ -74324,6 +74329,9 @@ const createJobGauges = (workflow, workflowRunJobs) => {
             continue;
         }
         createGauge(descriptorNames.JOB_QUEUED_DURATION, jobQueuedDuration, jobMetricsAttributes, { unit: 's' });
+        // Record job run as gauge (value=1) for counting via increase() in Prometheus
+        // We use a gauge instead of counter because each GitHub Actions run is a separate process
+        createGauge(descriptorNames.JOB_RUNS, 1, jobMetricsAttributes, { unit: '1', description: 'Job run indicator for counting' });
     }
 };
 
@@ -74494,9 +74502,16 @@ const initializeMeter = (exporter, additionalResourceAttributes) => {
         const resource = additionalResourceAttributes
             ? baseResource.merge((0,build_src.resourceFromAttributes)(additionalResourceAttributes))
             : baseResource;
+        // Create a custom metric reader that forces CUMULATIVE temporality for all instruments
+        // This is required for Prometheus/Grafana Cloud compatibility
+        class CumulativeMetricReader extends sdk_metrics_build_src.PeriodicExportingMetricReader {
+            selectAggregationTemporality(_instrumentType) {
+                return sdk_metrics_build_src.AggregationTemporality.CUMULATIVE;
+            }
+        }
         meterProvider = new sdk_metrics_build_src.MeterProvider({
             readers: [
-                new sdk_metrics_build_src.PeriodicExportingMetricReader({
+                new CumulativeMetricReader({
                     exporter: exporter ?? new exporter_metrics_otlp_proto_build_src/* OTLPMetricExporter */.r(),
                     // Exporter has not implemented the manual flush method yet.
                     // High interval prevents from generating duplicate metrics.
