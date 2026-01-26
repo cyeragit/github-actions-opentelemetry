@@ -1,8 +1,10 @@
 export const descriptorNames = {
   JOB_DURATION: 'github.job.duration',
   JOB_QUEUED_DURATION: 'github.job.queued_duration',
+  JOB_RUNS: 'github.job.runs',
   WORKFLOW_DURATION: 'github.workflow.duration',
-  WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration'
+  WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration',
+  WORKFLOW_RUNS: 'github.workflow.runs'
 } as const satisfies Record<string, string>
 
 export const attributeKeys = {
