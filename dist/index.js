@@ -74247,8 +74247,10 @@ const calcDiffSec = (startDate, endDate) => {
 const descriptorNames = {
     JOB_DURATION: 'github.job.duration',
     JOB_QUEUED_DURATION: 'github.job.queued_duration',
+    JOB_RUNS: 'github.job.runs',
     WORKFLOW_DURATION: 'github.workflow.duration',
-    WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration'
+    WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration',
+    WORKFLOW_RUNS: 'github.workflow.runs'
 };
 const attributeKeys = {
     REPOSITORY: 'repository',
@@ -74274,6 +74276,11 @@ const createGauge = (name, value, attributes, option) => {
     const meter = src.metrics.getMeter('github-actions-metrics');
     const gauge = meter.createGauge(name, option);
     gauge.record(value, attributes);
+};
+const createHistogram = (name, value, attributes, option) => {
+    const meter = src.metrics.getMeter('github-actions-metrics');
+    const histogram = meter.createHistogram(name, option);
+    histogram.record(value, attributes);
 };
 const createMetricsAttributes = (workflow, job) => ({
     [attributeKeys.WORKFLOW_NAME]: workflow.name,
@@ -74310,6 +74317,10 @@ const createWorkflowGauges = (workflow, workflowRunJobs) => {
     else {
         core.notice(`${workflow.name}: Skip creating ${descriptorNames.WORKFLOW_QUEUED_DURATION} metric. Queue duration is negative (${workflowQueuedDuration}s), indicating a timing issue.`);
     }
+    // Record workflow run as histogram (value=1) for counting in Prometheus
+    // Histograms work better than gauges for one-shot exports in stateless GitHub Actions
+    // This will create github_workflow_runs_count, github_workflow_runs_sum, and github_workflow_runs_bucket metrics
+    createHistogram(descriptorNames.WORKFLOW_RUNS, 1, workflowMetricsAttributes, { unit: '1', description: 'Workflow run counter for accurate success rate calculations' });
 };
 const createJobGauges = (workflow, workflowRunJobs) => {
     for (const job of workflowRunJobs) {
@@ -74324,6 +74335,10 @@ const createJobGauges = (workflow, workflowRunJobs) => {
             continue;
         }
         createGauge(descriptorNames.JOB_QUEUED_DURATION, jobQueuedDuration, jobMetricsAttributes, { unit: 's' });
+        // Record job run as histogram (value=1) for counting in Prometheus
+        // Histograms work better than gauges for one-shot exports in stateless GitHub Actions
+        // This will create github_job_runs_count, github_job_runs_sum, and github_job_runs_bucket metrics
+        createHistogram(descriptorNames.JOB_RUNS, 1, jobMetricsAttributes, { unit: '1', description: 'Job run counter for accurate success rate calculations' });
     }
 };
 
@@ -74494,9 +74509,16 @@ const initializeMeter = (exporter, additionalResourceAttributes) => {
         const resource = additionalResourceAttributes
             ? baseResource.merge((0,build_src.resourceFromAttributes)(additionalResourceAttributes))
             : baseResource;
+        // Create a custom metric reader that forces CUMULATIVE temporality for all instruments
+        // This is required for Prometheus/Grafana Cloud compatibility
+        class CumulativeMetricReader extends sdk_metrics_build_src.PeriodicExportingMetricReader {
+            selectAggregationTemporality(_instrumentType) {
+                return sdk_metrics_build_src.AggregationTemporality.CUMULATIVE;
+            }
+        }
         meterProvider = new sdk_metrics_build_src.MeterProvider({
             readers: [
-                new sdk_metrics_build_src.PeriodicExportingMetricReader({
+                new CumulativeMetricReader({
                     exporter: exporter ?? new exporter_metrics_otlp_proto_build_src/* OTLPMetricExporter */.r(),
                     // Exporter has not implemented the manual flush method yet.
                     // High interval prevents from generating duplicate metrics.
