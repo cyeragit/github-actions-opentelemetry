@@ -22,6 +22,18 @@ export const createGauge = (
   gauge.record(value, attributes)
 }
 
+export const createCounter = (
+  name: string,
+  value: number,
+  attributes: opentelemetry.Attributes,
+  option?: opentelemetry.MetricOptions
+): void => {
+  const meter = opentelemetry.metrics.getMeter('github-actions-metrics')
+
+  const counter = meter.createCounter(name, option)
+  counter.add(value, attributes)
+}
+
 const createMetricsAttributes = (
   workflow: WorkflowRun,
   job?: WorkflowJob
@@ -86,13 +98,13 @@ export const createWorkflowGauges = (
     )
   }
 
-  // Record workflow run as gauge (value=1) for counting via increase() in Prometheus
-  // We use a gauge instead of counter because each GitHub Actions run is a separate process
-  createGauge(
+  // Record workflow run as counter (value=1) for counting in Prometheus
+  // Testing if counters work when properly compiled (push-based metric)
+  createCounter(
     dn.WORKFLOW_RUNS,
     1,
     workflowMetricsAttributes,
-    { unit: '1', description: 'Workflow run indicator for counting' }
+    { unit: '1', description: 'Workflow run counter for accurate success rate calculations' }
   )
 }
 
@@ -126,13 +138,13 @@ export const createJobGauges = (
       { unit: 's' }
     )
 
-    // Record job run as gauge (value=1) for counting via increase() in Prometheus
-    // We use a gauge instead of counter because each GitHub Actions run is a separate process
-    createGauge(
+    // Record job run as counter (value=1) for counting in Prometheus
+    // Testing if counters work when properly compiled (push-based metric)
+    createCounter(
       dn.JOB_RUNS,
       1,
       jobMetricsAttributes,
-      { unit: '1', description: 'Job run indicator for counting' }
+      { unit: '1', description: 'Job run counter for accurate success rate calculations' }
     )
   }
 }

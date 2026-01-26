@@ -74277,6 +74277,11 @@ const createGauge = (name, value, attributes, option) => {
     const gauge = meter.createGauge(name, option);
     gauge.record(value, attributes);
 };
+const createCounter = (name, value, attributes, option) => {
+    const meter = src.metrics.getMeter('github-actions-metrics');
+    const counter = meter.createCounter(name, option);
+    counter.add(value, attributes);
+};
 const createMetricsAttributes = (workflow, job) => ({
     [attributeKeys.WORKFLOW_NAME]: workflow.name,
     [attributeKeys.REPOSITORY]: workflow.repository.full_name,
@@ -74312,9 +74317,9 @@ const createWorkflowGauges = (workflow, workflowRunJobs) => {
     else {
         core.notice(`${workflow.name}: Skip creating ${descriptorNames.WORKFLOW_QUEUED_DURATION} metric. Queue duration is negative (${workflowQueuedDuration}s), indicating a timing issue.`);
     }
-    // Record workflow run as gauge (value=1) for counting via increase() in Prometheus
-    // We use a gauge instead of counter because each GitHub Actions run is a separate process
-    createGauge(descriptorNames.WORKFLOW_RUNS, 1, workflowMetricsAttributes, { unit: '1', description: 'Workflow run indicator for counting' });
+    // Record workflow run as counter (value=1) for counting in Prometheus
+    // Testing if counters work when properly compiled (push-based metric)
+    createCounter(descriptorNames.WORKFLOW_RUNS, 1, workflowMetricsAttributes, { unit: '1', description: 'Workflow run counter for accurate success rate calculations' });
 };
 const createJobGauges = (workflow, workflowRunJobs) => {
     for (const job of workflowRunJobs) {
@@ -74329,9 +74334,9 @@ const createJobGauges = (workflow, workflowRunJobs) => {
             continue;
         }
         createGauge(descriptorNames.JOB_QUEUED_DURATION, jobQueuedDuration, jobMetricsAttributes, { unit: 's' });
-        // Record job run as gauge (value=1) for counting via increase() in Prometheus
-        // We use a gauge instead of counter because each GitHub Actions run is a separate process
-        createGauge(descriptorNames.JOB_RUNS, 1, jobMetricsAttributes, { unit: '1', description: 'Job run indicator for counting' });
+        // Record job run as counter (value=1) for counting in Prometheus
+        // Testing if counters work when properly compiled (push-based metric)
+        createCounter(descriptorNames.JOB_RUNS, 1, jobMetricsAttributes, { unit: '1', description: 'Job run counter for accurate success rate calculations' });
     }
 };
 
