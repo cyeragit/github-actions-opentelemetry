@@ -22,6 +22,9 @@ export const createGauge = (
   gauge.record(value, attributes)
 }
 
+// Cache for counter instruments to avoid recreating them
+const counterCache = new Map<string, opentelemetry.Counter>()
+
 export const incrementCounter = (
   name: string,
   attributes: opentelemetry.Attributes,
@@ -29,7 +32,13 @@ export const incrementCounter = (
 ): void => {
   const meter = opentelemetry.metrics.getMeter('github-actions-metrics')
 
-  const counter = meter.createCounter(name, option)
+  // Reuse counter instrument if it already exists
+  let counter = counterCache.get(name)
+  if (!counter) {
+    counter = meter.createCounter(name, option)
+    counterCache.set(name, counter)
+  }
+
   counter.add(1, attributes)
 }
 
