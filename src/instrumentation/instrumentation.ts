@@ -8,7 +8,8 @@ import {
   MeterProvider,
   PeriodicExportingMetricReader,
   PushMetricExporter,
-  AggregationTemporality
+  AggregationTemporality,
+  InstrumentType
 } from '@opentelemetry/sdk-metrics'
 import * as opentelemetry from '@opentelemetry/api'
 import {
@@ -49,15 +50,18 @@ const initializeMeter = (
       ? baseResource.merge(resourceFromAttributes(additionalResourceAttributes))
       : baseResource
 
-    // Configure OTLP exporter with CUMULATIVE temporality for Prometheus compatibility
-    const otlpExporter = exporter ?? new OTLPMetricExporter({
-      temporalityPreference: AggregationTemporality.CUMULATIVE
-    })
+    // Create a custom metric reader that forces CUMULATIVE temporality for all instruments
+    // This is required for Prometheus/Grafana Cloud compatibility
+    class CumulativeMetricReader extends PeriodicExportingMetricReader {
+      selectAggregationTemporality(_instrumentType: InstrumentType): AggregationTemporality {
+        return AggregationTemporality.CUMULATIVE
+      }
+    }
 
     meterProvider = new MeterProvider({
       readers: [
-        new PeriodicExportingMetricReader({
-          exporter: otlpExporter,
+        new CumulativeMetricReader({
+          exporter: exporter ?? new OTLPMetricExporter(),
           // Exporter has not implemented the manual flush method yet.
           // High interval prevents from generating duplicate metrics.
           exportIntervalMillis: 24 * 60 * 60 * 1000 // 24 hours
