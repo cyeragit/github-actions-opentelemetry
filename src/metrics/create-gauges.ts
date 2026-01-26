@@ -22,6 +22,17 @@ export const createGauge = (
   gauge.record(value, attributes)
 }
 
+export const incrementCounter = (
+  name: string,
+  attributes: opentelemetry.Attributes,
+  option?: opentelemetry.MetricOptions
+): void => {
+  const meter = opentelemetry.metrics.getMeter('github-actions-metrics')
+
+  const counter = meter.createCounter(name, option)
+  counter.add(1, attributes)
+}
+
 const createMetricsAttributes = (
   workflow: WorkflowRun,
   job?: WorkflowJob
@@ -85,6 +96,13 @@ export const createWorkflowGauges = (
       `${workflow.name}: Skip creating ${dn.WORKFLOW_QUEUED_DURATION} metric. Queue duration is negative (${workflowQueuedDuration}s), indicating a timing issue.`
     )
   }
+
+  // Increment workflow run counter for accurate success rate calculation
+  incrementCounter(
+    dn.WORKFLOW_RUNS,
+    workflowMetricsAttributes,
+    { unit: '1', description: 'Total number of workflow runs' }
+  )
 }
 
 export const createJobGauges = (
@@ -115,6 +133,13 @@ export const createJobGauges = (
       jobQueuedDuration,
       jobMetricsAttributes,
       { unit: 's' }
+    )
+
+    // Increment job run counter for accurate success rate calculation
+    incrementCounter(
+      dn.JOB_RUNS,
+      jobMetricsAttributes,
+      { unit: '1', description: 'Total number of job runs' }
     )
   }
 }
