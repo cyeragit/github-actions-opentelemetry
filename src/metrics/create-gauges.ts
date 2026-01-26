@@ -22,18 +22,6 @@ export const createGauge = (
   gauge.record(value, attributes)
 }
 
-export const createHistogram = (
-  name: string,
-  value: number,
-  attributes: opentelemetry.Attributes,
-  option?: opentelemetry.MetricOptions
-): void => {
-  const meter = opentelemetry.metrics.getMeter('github-actions-metrics')
-
-  const histogram = meter.createHistogram(name, option)
-  histogram.record(value, attributes)
-}
-
 const createMetricsAttributes = (
   workflow: WorkflowRun,
   job?: WorkflowJob
@@ -98,14 +86,13 @@ export const createWorkflowGauges = (
     )
   }
 
-  // Record workflow run as histogram (value=1) for counting in Prometheus
-  // Histograms work better than gauges for one-shot exports in stateless GitHub Actions
-  // This will create github_workflow_runs_count, github_workflow_runs_sum, and github_workflow_runs_bucket metrics
-  createHistogram(
+  // Record workflow run as gauge (value=1) for counting via increase() in Prometheus
+  // We use a gauge instead of counter because each GitHub Actions run is a separate process
+  createGauge(
     dn.WORKFLOW_RUNS,
     1,
     workflowMetricsAttributes,
-    { unit: '1', description: 'Workflow run counter for accurate success rate calculations' }
+    { unit: '1', description: 'Workflow run indicator for counting' }
   )
 }
 
@@ -139,14 +126,13 @@ export const createJobGauges = (
       { unit: 's' }
     )
 
-    // Record job run as histogram (value=1) for counting in Prometheus
-    // Histograms work better than gauges for one-shot exports in stateless GitHub Actions
-    // This will create github_job_runs_count, github_job_runs_sum, and github_job_runs_bucket metrics
-    createHistogram(
+    // Record job run as gauge (value=1) for counting via increase() in Prometheus
+    // We use a gauge instead of counter because each GitHub Actions run is a separate process
+    createGauge(
       dn.JOB_RUNS,
       1,
       jobMetricsAttributes,
-      { unit: '1', description: 'Job run counter for accurate success rate calculations' }
+      { unit: '1', description: 'Job run indicator for counting' }
     )
   }
 }
