@@ -24,6 +24,7 @@ describe('createWorkflowJobSpan', () => {
     run_id: 12345,
     runner_name: 'test-runner',
     runner_group_name: 'test-group',
+    runner_type: 'build',
     steps: [
       {
         name: 'test-step',
@@ -66,6 +67,7 @@ describe('createWorkflowRunStepSpan', () => {
     run_id: 12345,
     runner_name: 'test-runner',
     runner_group_name: 'test-group',
+    runner_type: 'build',
     steps: [
       {
         name: 'valid-step',

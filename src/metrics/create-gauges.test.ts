@@ -113,6 +113,7 @@ describe('createJobGauges', () => {
       run_id: 123,
       runner_name: null,
       runner_group_name: null,
+      runner_type: 'unknown',
       steps: []
     }
 

@@ -1,5 +1,6 @@
 import { Endpoints } from '@octokit/types'
 import { context } from '@actions/github'
+import { parseRunnerType } from '../utils/parse-runner-type.js'
 
 // Define types for GitHub Actions workflow run and job responses
 export type WorkflowResponse =
@@ -48,6 +49,8 @@ export type WorkflowJob = {
   readonly runner_name: string | null
   // runner_group_name is optional field, so we allow it to be null
   readonly runner_group_name: string | null
+  // runner_type is derived from runner_name for better aggregation
+  readonly runner_type: string
   readonly workflow_name: string
   readonly steps: WorkflowStep[]
 }
@@ -135,7 +138,8 @@ export const toWorkflowJob = (
     run_id: job.run_id,
     steps: job.steps?.map(toWorkflowStep) || [],
     runner_name: job.runner_name,
-    runner_group_name: job.runner_group_name
+    runner_group_name: job.runner_group_name,
+    runner_type: parseRunnerType(job.runner_name)
   }
 }
 export const toWorkflowRun = (workflowRun: WorkflowResponse): Workflow => {

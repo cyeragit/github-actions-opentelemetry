@@ -18,5 +18,6 @@ export const attributeKeys = {
   JOB_NAME: 'job.name',
   JOB_CONCLUSION: 'job.conclusion',
   RUNNER_NAME: 'runner.name',
-  RUNNER_GROUP_NAME: 'runner.group_name'
+  RUNNER_GROUP_NAME: 'runner.group_name',
+  RUNNER_TYPE: 'runner.type'
 } as const satisfies Record<string, string>
