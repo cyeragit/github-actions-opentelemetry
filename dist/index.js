@@ -73961,7 +73961,59 @@ const dist_src_Octokit = Octokit.plugin(requestLog, legacyRestEndpointMethods, p
 );
 
 
+;// CONCATENATED MODULE: ./src/utils/parse-runner-type.ts
+/**
+ * Extracts the runner type from a runner name.
+ *
+ * Examples:
+ *   "aws-ci-k8s-runner-jest-dedicated-bg4b2-runner-pxxdt" → "jest-dedicated"
+ *   "aws-ci-k8s-runner-general-purpose-2xl-j9khm-runner-nj4vj" → "general-purpose-2xl"
+ *   "aws-k8s-runner-general-purpose-rprhd-runner-c86pl" → "general-purpose"
+ *   "GitHub Actions 1003463699" → "github-actions"
+ *   "GitHub Actions 42" → "github-actions"
+ *   null → "unknown"
+ *
+ * @param runnerName - The runner name from GitHub API (can be null)
+ * @returns The runner type (normalized for use as a Prometheus label)
+ */
+const parseRunnerType = (runnerName) => {
+    if (!runnerName) {
+        return 'unknown';
+    }
+    // Handle GitHub-hosted runners
+    if (runnerName.startsWith('GitHub Actions')) {
+        return 'github-actions';
+    }
+    // Handle self-hosted runners with pattern:
+    // aws-ci-k8s-runner-{TYPE}-{HASH}-runner-{POD}
+    // aws-k8s-runner-{TYPE}-{HASH}-runner-{POD}
+    // Match pattern: (aws-ci-k8s-runner- or aws-k8s-runner-) followed by type, then -runner-
+    const match = runnerName.match(/^aws-(?:ci-)?k8s-runner-(.+?)-[a-z0-9]+-runner-[a-z0-9]+$/);
+    if (match && match[1]) {
+        return match[1]; // e.g., "jest-dedicated", "general-purpose-2xl"
+    }
+    // Fallback: try to extract anything between "runner-" and the last part
+    const parts = runnerName.split('-');
+    if (parts.length >= 4) {
+        // Find the index of "runner" (first occurrence after prefix)
+        const runnerIndex = parts.indexOf('runner', 2);
+        if (runnerIndex > 2) {
+            // Extract everything between prefix and hash
+            // e.g., ["aws", "ci", "k8s", "runner", "jest", "dedicated", "bg4b2", "runner", "pxxdt"]
+            //                                       ^---- start      ^---- end (before hash)
+            const typeStart = 4; // After "aws-ci-k8s-runner-" or "aws-k8s-runner-"
+            const typeEnd = parts.findIndex((part, idx) => idx > typeStart && part === 'runner');
+            if (typeEnd > typeStart) {
+                return parts.slice(typeStart, typeEnd - 1).join('-');
+            }
+        }
+    }
+    // Last resort: return the runner name as-is (shouldn't happen often)
+    return runnerName;
+};
+
 ;// CONCATENATED MODULE: ./src/github/types.ts
+
 // refer steps.<step_id>.conclusion	https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#steps-context
 const STEP_CONCLUSION_VALUES = [
     'success',
@@ -74020,7 +74072,8 @@ const toWorkflowJob = (job, eventName) => {
         run_id: job.run_id,
         steps: job.steps?.map(toWorkflowStep) || [],
         runner_name: job.runner_name,
-        runner_group_name: job.runner_group_name
+        runner_group_name: job.runner_group_name,
+        runner_type: parseRunnerType(job.runner_name)
     };
 };
 const toWorkflowRun = (workflowRun) => {
@@ -74263,7 +74316,8 @@ const attributeKeys = {
     JOB_NAME: 'job.name',
     JOB_CONCLUSION: 'job.conclusion',
     RUNNER_NAME: 'runner.name',
-    RUNNER_GROUP_NAME: 'runner.group_name'
+    RUNNER_GROUP_NAME: 'runner.group_name',
+    RUNNER_TYPE: 'runner.type'
 };
 
 ;// CONCATENATED MODULE: ./src/metrics/create-gauges.ts
@@ -74298,7 +74352,8 @@ const createMetricsAttributes = (workflow, job) => ({
     ...(job && job.conclusion && { [attributeKeys.JOB_CONCLUSION]: job.conclusion }), // conclusion specification: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/about-status-checks#check-statuses-and-conclusions
     ...(job && job.runner_name && { [attributeKeys.RUNNER_NAME]: job.runner_name }),
     ...(job &&
-        job.runner_group_name && { [attributeKeys.RUNNER_GROUP_NAME]: job.runner_group_name })
+        job.runner_group_name && { [attributeKeys.RUNNER_GROUP_NAME]: job.runner_group_name }),
+    ...(job && { [attributeKeys.RUNNER_TYPE]: job.runner_type })
 });
 const createWorkflowGauges = (workflow, workflowRunJobs) => {
     const workflowMetricsAttributes = createMetricsAttributes(workflow);

@@ -53,7 +53,8 @@ const createMetricsAttributes = (
   ...(job && job.conclusion && { [ak.JOB_CONCLUSION]: job.conclusion }), // conclusion specification: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/about-status-checks#check-statuses-and-conclusions
   ...(job && job.runner_name && { [ak.RUNNER_NAME]: job.runner_name }),
   ...(job &&
-    job.runner_group_name && { [ak.RUNNER_GROUP_NAME]: job.runner_group_name })
+    job.runner_group_name && { [ak.RUNNER_GROUP_NAME]: job.runner_group_name }),
+  ...(job && { [ak.RUNNER_TYPE]: job.runner_type })
 })
 
 export const createWorkflowGauges = (

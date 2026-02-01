@@ -420,6 +420,7 @@ describe('Type converters', () => {
       run_id: 12345,
       runner_name: 'test-runner',
       runner_group_name: 'test-group',
+      runner_type: 'build',
       steps: [
         {
           name: 'test-step',
@@ -518,6 +519,7 @@ describe('Type converters', () => {
       if (result) {
         expect(result.runner_name).toBe('ubuntu-latest-runner')
         expect(result.runner_group_name).toBe('github-hosted')
+        expect(result.runner_type).toBe('ubuntu-latest-runner') // runner_type is computed from runner_name
       }
     })
 
@@ -525,7 +527,8 @@ describe('Type converters', () => {
       const jobWithNullRunner = {
         ...mockJobResponse,
         runner_name: null,
-        runner_group_name: null
+        runner_group_name: null,
+      runner_type: 'unknown'
       }
 
       const result = toWorkflowJob(jobWithNullRunner as never, 'workflow_run')

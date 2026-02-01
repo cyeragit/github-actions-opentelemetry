@@ -59,7 +59,8 @@ const workflowRunResults: WorkflowResults = {
         }
       ],
       runner_name: null,
-      runner_group_name: null
+      runner_group_name: null,
+      runner_type: 'unknown'
     },
     {
       created_at: new Date('2024-09-01T00:12:00Z'),
@@ -92,7 +93,8 @@ const workflowRunResults: WorkflowResults = {
         }
       ],
       runner_name: null,
-      runner_group_name: null
+      runner_group_name: null,
+      runner_type: 'unknown'
     }
   ]
 }
