@@ -4,7 +4,9 @@ export const descriptorNames = {
   JOB_RUNS: 'github.job.runs',
   WORKFLOW_DURATION: 'github.workflow.duration',
   WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration',
-  WORKFLOW_RUNS: 'github.workflow.runs'
+  WORKFLOW_RUNS: 'github.workflow.runs',
+  STEP_DURATION: 'github.step.duration',
+  STEP_RUNS: 'github.step.runs'
 } as const satisfies Record<string, string>
 
 export const attributeKeys = {
@@ -19,5 +21,7 @@ export const attributeKeys = {
   JOB_CONCLUSION: 'job.conclusion',
   RUNNER_NAME: 'runner.name',
   RUNNER_GROUP_NAME: 'runner.group_name',
-  RUNNER_TYPE: 'runner.type'
+  RUNNER_TYPE: 'runner.type',
+  STEP_NAME: 'step.name',
+  STEP_CONCLUSION: 'step.conclusion'
 } as const satisfies Record<string, string>
