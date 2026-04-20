@@ -615,6 +615,7 @@ describe('Type converters', () => {
       status: 'completed' as const,
       conclusion: 'success',
       created_at: '2023-01-01T00:00:00Z',
+      run_started_at: '2023-01-01T00:00:30Z',
       run_attempt: 1,
       html_url: 'https://github.com/test/repo/actions/runs/12345',
       repository: {
@@ -626,6 +627,7 @@ describe('Type converters', () => {
       name: 'Test Workflow',
       conclusion: 'success',
       created_at: new Date('2023-01-01T00:00:00Z'),
+      run_started_at: new Date('2023-01-01T00:00:30Z'),
       run_attempt: 1,
       html_url: 'https://github.com/test/repo/actions/runs/12345',
       actor: null,

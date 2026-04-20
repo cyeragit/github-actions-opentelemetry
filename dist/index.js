@@ -74094,6 +74094,7 @@ const toWorkflowRun = (workflowRun) => {
         name: workflowRun.name,
         conclusion: workflowRun.conclusion,
         created_at: new Date(workflowRun.created_at),
+        run_started_at: new Date(workflowRun.run_started_at ?? workflowRun.created_at),
         run_attempt: workflowRun.run_attempt,
         html_url: workflowRun.html_url,
         actor: workflowRun.actor?.login || null,
@@ -74303,7 +74304,9 @@ const descriptorNames = {
     JOB_RUNS: 'github.job.runs',
     WORKFLOW_DURATION: 'github.workflow.duration',
     WORKFLOW_QUEUED_DURATION: 'github.workflow.queued_duration',
-    WORKFLOW_RUNS: 'github.workflow.runs'
+    WORKFLOW_RUNS: 'github.workflow.runs',
+    STEP_DURATION: 'github.step.duration',
+    STEP_RUNS: 'github.step.runs'
 };
 const attributeKeys = {
     REPOSITORY: 'repository',
@@ -74317,7 +74320,9 @@ const attributeKeys = {
     JOB_CONCLUSION: 'job.conclusion',
     RUNNER_NAME: 'runner.name',
     RUNNER_GROUP_NAME: 'runner.group_name',
-    RUNNER_TYPE: 'runner.type'
+    RUNNER_TYPE: 'runner.type',
+    STEP_NAME: 'step.name',
+    STEP_CONCLUSION: 'step.conclusion'
 };
 
 ;// CONCATENATED MODULE: ./src/metrics/create-gauges.ts
@@ -74360,9 +74365,10 @@ const createWorkflowGauges = (workflow, workflowRunJobs) => {
     // Debug: log the attributes being used
     core.info(`Workflow metrics attributes: ${JSON.stringify(workflowMetricsAttributes)}`);
     core.info(`Workflow data - actor: ${workflow.actor}, event: ${workflow.event}, head_branch: ${workflow.head_branch}, base_branch: ${workflow.base_branch}`);
-    // workflow run context has no end time, so use the latest job's completed_at
+    // Use run_started_at (when execution began) rather than created_at (when queued)
+    // to measure actual execution time, excluding queue wait time.
     const jobCompletedAtMax = getLatestCompletedAt(workflowRunJobs);
-    createGauge(descriptorNames.WORKFLOW_DURATION, calcDiffSec(workflow.created_at, jobCompletedAtMax), workflowMetricsAttributes, { unit: 's' });
+    createGauge(descriptorNames.WORKFLOW_DURATION, calcDiffSec(workflow.run_started_at, jobCompletedAtMax), workflowMetricsAttributes, { unit: 's' });
     // workflow queue duration = time from workflow creation to first job start
     const jobStartedAtMin = getEarliestStartedAt(workflowRunJobs);
     const workflowQueuedDuration = calcDiffSec(workflow.created_at, jobStartedAtMin);
@@ -74392,6 +74398,43 @@ const createJobGauges = (workflow, workflowRunJobs) => {
         // Record job run as counter (value=1) for counting in Prometheus
         // Testing if counters work when properly compiled (push-based metric)
         createCounter(descriptorNames.JOB_RUNS, 1, jobMetricsAttributes, { unit: '1', description: 'Job run counter for accurate success rate calculations' });
+        // Create step-level metrics for each step in the job
+        createStepGauges(workflow, job);
+    }
+};
+const createStepMetricsAttributes = (workflow, job, step) => ({
+    [attributeKeys.WORKFLOW_NAME]: workflow.name,
+    [attributeKeys.REPOSITORY]: workflow.repository.full_name,
+    ...(workflow.conclusion && { [attributeKeys.WORKFLOW_CONCLUSION]: workflow.conclusion }),
+    ...(workflow.actor && { [attributeKeys.WORKFLOW_ACTOR]: workflow.actor }),
+    ...(workflow.event && { [attributeKeys.WORKFLOW_EVENT]: workflow.event }),
+    ...(workflow.head_branch && {
+        [attributeKeys.WORKFLOW_HEAD_BRANCH]: workflow.head_branch
+    }),
+    ...(workflow.base_branch && {
+        [attributeKeys.WORKFLOW_BASE_BRANCH]: workflow.base_branch
+    }),
+    [attributeKeys.JOB_NAME]: job.name,
+    ...(job.conclusion && { [attributeKeys.JOB_CONCLUSION]: job.conclusion }),
+    ...(job.runner_name && { [attributeKeys.RUNNER_NAME]: job.runner_name }),
+    ...(job.runner_group_name && { [attributeKeys.RUNNER_GROUP_NAME]: job.runner_group_name }),
+    [attributeKeys.RUNNER_TYPE]: job.runner_type,
+    [attributeKeys.STEP_NAME]: step.name,
+    [attributeKeys.STEP_CONCLUSION]: step.conclusion
+});
+const createStepGauges = (workflow, job) => {
+    for (const step of job.steps) {
+        const stepMetricsAttributes = createStepMetricsAttributes(workflow, job, step);
+        // Calculate step duration
+        const stepDuration = calcDiffSec(step.started_at, step.completed_at);
+        if (stepDuration >= 0) {
+            createGauge(descriptorNames.STEP_DURATION, stepDuration, stepMetricsAttributes, { unit: 's', description: 'Duration of individual workflow step' });
+        }
+        else {
+            core.notice(`${job.name}/${step.name}: Skip creating ${descriptorNames.STEP_DURATION} metric. Duration is negative (${stepDuration}s), indicating a timing issue.`);
+        }
+        // Record step run as counter (value=1) for counting in Prometheus
+        createCounter(descriptorNames.STEP_RUNS, 1, stepMetricsAttributes, { unit: '1', description: 'Step run counter for step-level success rate calculations' });
     }
 };
 

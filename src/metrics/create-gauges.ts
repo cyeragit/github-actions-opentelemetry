@@ -72,11 +72,12 @@ export const createWorkflowGauges = (
     `Workflow data - actor: ${workflow.actor}, event: ${workflow.event}, head_branch: ${workflow.head_branch}, base_branch: ${workflow.base_branch}`
   )
 
-  // workflow run context has no end time, so use the latest job's completed_at
+  // Use run_started_at (when execution began) rather than created_at (when queued)
+  // to measure actual execution time, excluding queue wait time.
   const jobCompletedAtMax = getLatestCompletedAt(workflowRunJobs)
   createGauge(
     dn.WORKFLOW_DURATION,
-    calcDiffSec(workflow.created_at, jobCompletedAtMax),
+    calcDiffSec(workflow.run_started_at, jobCompletedAtMax),
     workflowMetricsAttributes,
     { unit: 's' }
   )
