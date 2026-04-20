@@ -61,6 +61,7 @@ export type Workflow = {
   // TODO: use union type for conclusion
   readonly conclusion: string | null
   readonly created_at: Date
+  readonly run_started_at: Date
   readonly run_attempt: number
   readonly html_url: string
   readonly actor: string | null
@@ -165,6 +166,7 @@ export const toWorkflowRun = (workflowRun: WorkflowResponse): Workflow => {
     name: workflowRun.name,
     conclusion: workflowRun.conclusion,
     created_at: new Date(workflowRun.created_at),
+    run_started_at: new Date(workflowRun.run_started_at ?? workflowRun.created_at),
     run_attempt: workflowRun.run_attempt,
     html_url: workflowRun.html_url,
     actor: workflowRun.actor?.login || null,

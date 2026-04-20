@@ -19,6 +19,7 @@ import settings from '../settings.js'
 const workflowRunResults: WorkflowResults = {
   workflow: {
     created_at: new Date('2024-09-01T00:00:00Z'),
+    run_started_at: new Date('2024-09-01T00:01:00Z'),
     id: 10000000000,
     name: 'Test Run',
     run_attempt: 14,
@@ -146,7 +147,7 @@ describe('should export expected metrics', () => {
     if (!workflowRunJobs[1].completed_at) fail()
     expect(metric.dataPoints[0].value).toEqual(
       calcDiffSec(
-        workflowRun.created_at,
+        workflowRun.run_started_at,
         workflowRunJobs[1].completed_at // last job's complete_at
       )
     )
